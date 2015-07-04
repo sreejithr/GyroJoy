@@ -1,0 +1,78 @@
+<html>
+<head>
+<title>Gyro</title>
+</head>
+
+<body>
+<script src="static/jquery-2.0.3.js"></script>
+<script src="static/fulltilt.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+	var gyroClient = function() {
+		var self = {
+			init: function() {
+				self.last_x = 0;
+				self.last_z = 0;
+				self.boost = 10;
+				if (window.DeviceMotionEvent !== undefined) {
+					window.ondevicemotion = self.deviceMotionHandler;
+				}
+				self.poll();
+			},
+
+			poll: function() {
+				if (self.last_x !== null) {
+					self.sendTranslation(self.last_x * self.boost, self.last_z * self.boost);
+					self.displayTranslation(self.last_x, self.last_z);
+					self.last_x = null;
+				}
+				requestAnimationFrame(self.poll);
+			},
+
+			deviceMotionHandler: function(event) {
+				var ax = event.acceleration.x;
+				var az = event.acceleration.z;
+				var rotation = event.rotationRate;
+
+				if (Math.abs(self.last_x - ax) > 0.2) {
+					self.last_x = ax;
+				}
+				if (Math.abs(self.last_z - az) > 0.2) {
+					self.last_z = az;
+				}
+				// if (rotation !== null) {
+				// 	var rAlpha = Math.round(rotation.alpha);
+				// 	var rBeta = Math.round(rotation.beta);
+				// 	var rGamma = Math.round(rotation.gamma);
+				// 	self.displayRotation(rAlpha, rBeta, rGamma);
+				// }
+			},
+
+			displayTranslation: function(ax, az) {
+				document.getElementById("gyro-translation").innerHTML = "x: " + ax + " z: " + az;
+			},
+
+			displayRotation: function(rAlpha, rBeta, rGamma) {
+				document.getElementById("gyro-rotation").innerHTML = "alpha: " + rAlpha + " beta: " + rBeta + " gamma: " + rGamma;
+			},
+
+			sendTranslation: function(ax, az) {
+				if (ax === 0 && az === 0) return;
+				$.ajax({
+					url: "move/" + ax + "/" + az,
+				}).done();
+			}
+		};
+		self.init();
+	};
+	$('button#start-button').click(function(e) {
+		gyroClient();
+	});
+});
+</script>
+	<h3 id="gyro-translation"></h3>
+	<h3 id="gyro-rotation"></h3>
+	<button type="button" id="start-button">Start!</button>
+</body>
+
+</html>
