@@ -1,78 +1,98 @@
 <html>
 <head>
-<title>Gyro</title>
+    <title>Gyro</title>
 </head>
 
 <body>
 <script src="static/jquery-2.0.3.js"></script>
-<script src="static/fulltilt.min.js"></script>
 <script type="text/javascript">
+
 $(document).ready(function() {
-	var gyroClient = function() {
+	var GyroClient = function() {
 		var self = {
+
 			init: function() {
-				self.last_x = 0;
-				self.last_z = 0;
-				self.boost = 10;
-				if (window.DeviceMotionEvent !== undefined) {
-					window.ondevicemotion = self.deviceMotionHandler;
+				self.alpha = 0;
+				self.beta = 0;
+				self.calibration = {alpha: 0, beta: 0};
+
+				// Amount of boost to the signal
+				self.boost = 1;
+
+				if (window.DeviceOrientationEvent) {
+					window.addEventListener('deviceorientation', self.deviceOrientationHandler, false);
+				} else {
+					$('#gyro-rotation').html("Not supported");
 				}
-				self.poll();
+
+				// Click listeners
+				$('button#start').click(function() {
+					self.poll();
+				});
+
+				$("button#calibrate").click(function() {
+					self.calibrate(self.alpha, self.beta);
+				});
+			},
+
+			calibrate: function(alpha, beta) {
+				self.calibration = {alpha: alpha, beta: beta};
 			},
 
 			poll: function() {
-				if (self.last_x !== null) {
-					self.sendTranslation(self.last_x * self.boost, self.last_z * self.boost);
-					self.displayTranslation(self.last_x, self.last_z);
-					self.last_x = null;
+				// Essentially, we're doing a change of basis. From the axis wrt to the phone to one wrt to
+				// the computer.
+				if (self.calibration.alpha > 270 && self.alpha < 90) {
+					var alpha = 360 - (self.calibration.alpha - self.alpha);
+				} else if (self.calibration.alpha < 90 && self.alpha > 270) {
+					var alpha = (self.alpha - self.calibration.alpha) - 360;
+				} else {
+					var alpha = self.alpha - self.calibration.alpha;
 				}
+				var beta = self.beta - self.calibration.beta;
+
+				// -89 < alpha < 89
+				alpha = Math.max(-89, Math.min(89, alpha));
+
+				self.displayOrientation(-alpha, beta);
+				self.sendOrientation(-alpha, -beta);
+
+				// We poll at 60 fps
 				requestAnimationFrame(self.poll);
 			},
 
-			deviceMotionHandler: function(event) {
-				var ax = event.acceleration.x;
-				var az = event.acceleration.z;
-				var rotation = event.rotationRate;
-
-				if (Math.abs(self.last_x - ax) > 0.2) {
-					self.last_x = ax;
-				}
-				if (Math.abs(self.last_z - az) > 0.2) {
-					self.last_z = az;
-				}
-				// if (rotation !== null) {
-				// 	var rAlpha = Math.round(rotation.alpha);
-				// 	var rBeta = Math.round(rotation.beta);
-				// 	var rGamma = Math.round(rotation.gamma);
-				// 	self.displayRotation(rAlpha, rBeta, rGamma);
-				// }
+			deviceOrientationHandler: function(e) {
+				// alpha is the compass direction the device is facing in degrees. Varies between
+				// 0 and 360
+    			self.alpha = Math.round(e.alpha);
+    			// beta is the front-to-back tilt in degrees, where front is positive.
+    			self.beta = Math.round(e.beta);
 			},
 
-			displayTranslation: function(ax, az) {
-				document.getElementById("gyro-translation").innerHTML = "x: " + ax + " z: " + az;
+			displayOrientation: function(alpha, beta, gamma) {
+				$("#gyro-rotation").html("alpha: " + alpha + " beta: " + beta);
 			},
 
-			displayRotation: function(rAlpha, rBeta, rGamma) {
-				document.getElementById("gyro-rotation").innerHTML = "alpha: " + rAlpha + " beta: " + rBeta + " gamma: " + rGamma;
-			},
-
-			sendTranslation: function(ax, az) {
-				if (ax === 0 && az === 0) return;
+			sendOrientation: function(alpha, beta) {
 				$.ajax({
-					url: "move/" + ax + "/" + az,
+					url: "/move/" + alpha + "/" + beta,
 				}).done();
 			}
 		};
-		self.init();
+
+		return self.init();
+
 	};
-	$('button#start-button').click(function(e) {
-		gyroClient();
-	});
+
+	// Start app
+	GyroClient();
+
 });
 </script>
-	<h3 id="gyro-translation"></h3>
+
 	<h3 id="gyro-rotation"></h3>
-	<button type="button" id="start-button">Start!</button>
+	<button type="button" id="start">Start!</button>
+	<button type="button" id="calibrate">Calibrate</button>
 </body>
 
 </html>

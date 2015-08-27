@@ -9,25 +9,25 @@ package main
 
 CGPoint get_curr_pos();
 
-void mouse_move(float dx, float dy) {
+void move_mouse(float x, float y) {
     CGPoint current = get_curr_pos();
-    CGPoint move_to = CGPointMake(current.x + dx, current.y + dy);
+    CGPoint move_to = CGPointMake(x, y);
     CGEventRef move = CGEventCreateMouseEvent(NULL, kCGEventMouseMoved, move_to,
                                               kCGMouseButtonLeft);
     CGEventPost(kCGHIDEventTap, move);
     CFRelease(move);
 }
 
-void mouse_click_down(CGPoint position, uint32_t button) {
-    CGEventRef click = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown, position,
-                                               button);
+void mouse_click_down(uint32_t button) {
+    CGEventRef click = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown,
+                                               get_curr_pos(), button);
     CGEventPost(kCGHIDEventTap, click);
     CFRelease(click);
 }
 
-void mouse_click_up(CGPoint position, uint32_t button) {
-    CGEventRef click = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp, position,
-                                               button);
+void mouse_click_up(uint32_t button) {
+    CGEventRef click = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp,
+                                               get_curr_pos(), button);
     CGEventPost(kCGHIDEventTap, click);
     CFRelease(click);
 }
@@ -40,45 +40,15 @@ CGPoint get_curr_pos() {
 }
 */
 import "C"
-import (
-	"fmt"
-	"time"
-)
 
-func isNegative(num float64) bool {
-	if num < 0 {
-		return true
-	}
-	return false
+func GetDisplayWidth() int {
+	return int(C.CGDisplayPixelsWide(C.CGMainDisplayID()));
 }
 
-func processComponent(component float64, last *float64) float64 {
-	if isNegative(component) != isNegative(*last) {
-		component := 0.0
-		if *last < component {
-			component -= *last
-			*last = component
-		}
-		return component
-	}
-	*last = component
-	return component
+func GetDisplayHeight() int {
+	return int(C.CGDisplayPixelsHigh(C.CGMainDisplayID()));
 }
 
-func Loop(signal chan Acceleration) {
-	var value, acceleration Acceleration
-	last := Acceleration{0, 0}
-	for {
-		value = <-signal
-		acceleration = Acceleration{processComponent(value.x, &last.x),
-      			processComponent(value.y, &last.y)}
-		MoveMouse(acceleration)
-		last = acceleration
-		fmt.Println(acceleration)
-		time.Sleep(1/time.Second * time.Millisecond)
-	}
-}
-
-func MoveMouse(value Acceleration) {
-	C.mouse_move(C.float(value.x), C.float(value.y))
+func MoveMouse(movement Movement) {
+	C.move_mouse(C.float(movement.x), C.float(movement.y))
 }

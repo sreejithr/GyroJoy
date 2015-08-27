@@ -10,23 +10,28 @@ import (
 	"github.com/labstack/echo"
 )
 
-type Acceleration struct {
-	x float64
-	y float64
+type Orientation struct {
+	alpha int
+	beta int
 }
 
-var signal chan Acceleration
+func (o Orientation) ToPixels(maxAlpha int, maxBeta int) Movement {
+	x := GetDisplayWidth()/2 + (GetDisplayWidth()/maxAlpha * o.alpha)
+	y := GetDisplayHeight()/2 + (GetDisplayHeight()/maxBeta * o.beta)
+	return Movement{x,y}
+}
+
+type Movement struct {
+	x int
+	y int
+}
 
 func main() {
-	_ = "breakpoint"
 	e := echo.New()
 
 	e.Index("client/gyro.html")
-	e.Get("/move/:x/:y", Move)
+	e.Get("/move/:alpha/:beta", Move)
 	e.Static("/static/", "static/")
-
-	signal = make(chan Acceleration, 1)
-	go Loop(signal)
 
 	log.Printf("Gyrojoy started at port 8000.")
 	e.Run(":8000")
@@ -43,9 +48,10 @@ func LogToFile(x float64, y float64) {
 }
 
 func Move(c *echo.Context) error {
-	x, _ := strconv.ParseFloat(c.Param("x"), 64)
-	y, _ := strconv.ParseFloat(c.Param("y"), 64)
-	LogToFile(x, y)
-	signal <- Acceleration{x, y}
+	alpha, _ := strconv.ParseInt(c.Param("alpha"), 10, 64)
+	beta, _ := strconv.ParseInt(c.Param("beta"), 10, 64)
+
+	MoveMouse(Orientation{int(alpha), int(beta)}.ToPixels(90, 90))
+
 	return c.String(http.StatusOK, "Hello")
 }
